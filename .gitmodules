@@ -1,0 +1,4 @@
+[submodule "Library_KURT_STM32"]
+	path = Library_KURT_STM32
+	url = https://github.com/kurt9dai/Library_KURT_STM32.git
+	branch = main

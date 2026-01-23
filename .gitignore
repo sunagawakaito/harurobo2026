@@ -1,0 +1,6 @@
+/build/
+/CMakeFiles/
+.settings/*
+!.settings/ide.store.json
+CMakeCache.txt
+.mxproject
