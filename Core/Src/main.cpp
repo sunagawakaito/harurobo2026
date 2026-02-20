@@ -25,11 +25,14 @@
 #include <stdint.h>
 #include "stm32f4xx_hal.h"
 #include "stm32f4xx_hal_can.h"
+#include "RoboMasterOut.h"
 
 #include "timer.hpp"
 #include "PWMOut.hpp"
 #include "BNO055.hpp"
 #include "EncoderIn.hpp"
+#include "CANHub.hpp"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -39,6 +42,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+bool cylinder_poll = 0;
+bool cylinder_ring = 0;
+int robomasID = 2;
+char rev;
+
 
 /* USER CODE END PD */
 
@@ -100,13 +108,12 @@ static void MX_CAN1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
 // On EXTI (External Interrupt) change detection
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
   // Example for button press handling (Falling edge triggered)
-  if (GPIO_Pin == B1_button_Pin) {
-      printf("Button Pressed!\n");
+  // if (GPIO_Pin == B1_button_Pin) {
+      //  printf("Button Pressed!\n");
 
       // When you configure the button GPIO with interrupt on both Rising/Falling edges:
       // if (HAL_GPIO_ReadPin(B1_button_GPIO_Port, B1_button_Pin) == GPIO_PIN_SET) {
@@ -117,7 +124,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
       //     printf("Button Pressed!\n");
       // }
   }
-}
 
 /* USER CODE END 0 */
 
@@ -128,8 +134,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 int main(void)
 {
 
-  /* USER CODE BEGIN 1 */
 
+  /* USER CODE BEGIN 1 */
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -178,11 +184,16 @@ int main(void)
   PWMOut pwm1(&htim1, TIM_CHANNEL_2);
   EncoderIn encoder1(&htim3);
   BNO055 bno055(hi2c1);
+  CANHub can(&hcan1);
+  RoboMasterOut robomas(&can);
 
-  float yawCurrent;
+  HAL_CAN_Start(&hcan1);
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+  float duty = 0.5;
 
 
-  bno055.reset();
+
 
   /* USER CODE END 2 */
 
@@ -190,11 +201,33 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, HAL_GPIO_ReadPin(B1_button_GPIO_Port, B1_button_Pin) != GPIO_PIN_SET ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
-    yawCurrent = bno055.get_euler().z;
-    printf("Yaw: %f\n", yawCurrent);
+  RoboMasterState state = robomas.read(robomasID, RoboMasterOut::C610);
 
+
+    cylinder_poll = !cylinder_poll;
+    cylinder_ring = !cylinder_ring;
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, cylinder_poll ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, cylinder_ring ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    // HAL_Delay(5000);
+    // printf("poll cylinder: %d , ring cylinder: %d\n", cylinder_poll, cylinder_ring);
+
+
+    // HAL_Delay(10);
+    if(HAL_UART_Receive(&huart2, (uint8_t *)&rev, 1, 1) == HAL_OK){
+       if(rev == 'u'){duty += 0.02;}
+       else if(rev == 'd'){duty -= 0.02;}
+       else if(rev == 'r'){duty = 0.5;}
+    }
+    robomas.write(robomasID, duty, RoboMasterOut::C610);
+    robomas.update();
+
+
+
+    printf("duty: %f, angle: %d, rpm: %d, torque: %d\r\n", duty, state.angle, state.rpm, state.torque);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
