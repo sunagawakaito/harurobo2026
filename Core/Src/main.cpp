@@ -184,13 +184,15 @@ int main(void)
   PWMOut pwm1(&htim1, TIM_CHANNEL_2);
   EncoderIn encoder1(&htim3);
   BNO055 bno055(hi2c1);
-  CANHub can(&hcan1);
+  CANHub can(&hcan2);
   RoboMasterOut robomas(&can);
 
-  HAL_CAN_Start(&hcan1);
-  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+  HAL_CAN_Start(&hcan2);
+  HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
 
   float duty = 0.5;
+  // int angle_pre = 0;
+  // int angle_sum = 0;
 
 
 
@@ -208,12 +210,7 @@ int main(void)
   RoboMasterState state = robomas.read(robomasID, RoboMasterOut::C610);
 
 
-    cylinder_poll = !cylinder_poll;
-    cylinder_ring = !cylinder_ring;
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, cylinder_poll ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, cylinder_ring ? GPIO_PIN_SET : GPIO_PIN_RESET);
-    // HAL_Delay(5000);
-    // printf("poll cylinder: %d , ring cylinder: %d\n", cylinder_poll, cylinder_ring);
+
 
 
     // HAL_Delay(10);
@@ -221,13 +218,30 @@ int main(void)
        if(rev == 'u'){duty += 0.02;}
        else if(rev == 'd'){duty -= 0.02;}
        else if(rev == 'r'){duty = 0.5;}
+
+       if(rev == 'a'){cylinder_poll = !cylinder_poll;}
+       else if(rev == 'b'){cylinder_ring = !cylinder_ring;}
+
+       
     }
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, cylinder_poll ? GPIO_PIN_SET : GPIO_PIN_RESET);
+    HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, cylinder_ring ? GPIO_PIN_SET : GPIO_PIN_RESET);
     robomas.write(robomasID, duty, RoboMasterOut::C610);
     robomas.update();
+    // if(angle_pre <= state.angle){
+    //   angle_sum = angle_sum + state.angle- angle_pre;
+    // }
+    // else{
+    //   angle_sum = angle_sum + state.angle - angle_pre + 8192;
+    // }
+
+    // printf("duty: %f, angle: %d, total angle: %d\r\n", duty, state.angle, angle_sum);
+    // angle_pre = state.angle;
+    printf("duty: %f, angle: %d\r\n", duty, state.angle);
+    // printf("poll cylinder: %d , ring cylinder: %d\n", cylinder_poll, cylinder_ring);
 
 
 
-    printf("duty: %f, angle: %d, rpm: %d, torque: %d\r\n", duty, state.angle, state.rpm, state.torque);
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
