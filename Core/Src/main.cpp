@@ -184,15 +184,17 @@ int main(void)
   PWMOut pwm1(&htim1, TIM_CHANNEL_2);
   EncoderIn encoder1(&htim3);
   BNO055 bno055(hi2c1);
-  CANHub can(&hcan2);
-  RoboMasterOut robomas(&can);
+  CANHub can2(&hcan2);
+  CANHub can1(&hcan1);                 // 受信確認のためCAN1も開く
+  RoboMasterOut robomas(&can2);
 
-  HAL_CAN_Start(&hcan2);
-  HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
+  // デバッグ: CAN1でも受信が発生したら表示
+  can1.attach([&](CANHub &c){
+      // 空ハンドラ、rxIrqHandlerでログ済み
+  });
 
   float duty = 0.5;
-  // int angle_pre = 0;
-  // int angle_sum = 0;
+  int angle_sum;
 
 
 
@@ -207,7 +209,7 @@ int main(void)
 
     HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, HAL_GPIO_ReadPin(B1_button_GPIO_Port, B1_button_Pin) != GPIO_PIN_SET ? GPIO_PIN_SET : GPIO_PIN_RESET);
 
-  RoboMasterState state = robomas.read(robomasID, RoboMasterOut::C610);
+  // RoboMasterState state = robomas.read(robomasID, RoboMasterOut::C610);
 
 
 
@@ -222,22 +224,22 @@ int main(void)
        if(rev == 'a'){cylinder_poll = !cylinder_poll;}
        else if(rev == 'b'){cylinder_ring = !cylinder_ring;}
 
-       
+
     }
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_8, cylinder_poll ? GPIO_PIN_SET : GPIO_PIN_RESET);
     HAL_GPIO_WritePin(GPIOC, GPIO_PIN_5, cylinder_ring ? GPIO_PIN_SET : GPIO_PIN_RESET);
     robomas.write(robomasID, duty, RoboMasterOut::C610);
     robomas.update();
-    // if(angle_pre <= state.angle){
-    //   angle_sum = angle_sum + state.angle- angle_pre;
-    // }
-    // else{
-    //   angle_sum = angle_sum + state.angle - angle_pre + 8192;
-    // }
+    RoboMasterState state = robomas.read(robomasID, RoboMasterOut::C610);
 
-    // printf("duty: %f, angle: %d, total angle: %d\r\n", duty, state.angle, angle_sum);
+
+    // printf("duty: %f, angle: %d\r\n", duty, state.angle);
+    angle_sum = state.total_rotation * 8192 + state.angle;
+
+
+    printf("duty: %f, angle: %d, total angle: %d\r\n", duty, state.angle, angle_sum);
     // angle_pre = state.angle;
-    printf("duty: %f, angle: %d\r\n", duty, state.angle);
+    // printf("duty: %f, angle: %d\r\n", duty,  state.angle);
     // printf("poll cylinder: %d , ring cylinder: %d\n", cylinder_poll, cylinder_ring);
 
 
@@ -1114,7 +1116,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-
+/* USER CODE END 4 */
 /* USER CODE END 4 */
 
 /**
@@ -1146,4 +1148,8 @@ void assert_failed(uint8_t *file, uint32_t line)
      ex: printf("Wrong parameters value: file %s on line %d\r\n", file, line) */
   /* USER CODE END 6 */
 }
+
+
+
+
 #endif /* USE_FULL_ASSERT */
